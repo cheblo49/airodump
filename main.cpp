@@ -75,19 +75,42 @@ int main(int argc, char* argv[]){
             ap_ls.find(temp)->second.beacon++; continue;
         }
 
-        struct ssid *size_ptr= (struct ssid *)(packet+rd->h_len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed));
+        struct taged_parm *size_ptr1= (struct taged_parm *)(packet+rd->h_len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed));
+        uint8_t size1 = size_ptr1->tag_len;
 
-        uint8_t size = size_ptr->ssid_len;
-
-        for(int i=0;i<size;i++){
+        for(int i=0;i<size1;i++){
             name.push_back(*((uint8_t *)(packet+rd->h_len+sizeof(dot11_header)+sizeof(struct beacon_fixed)+2+i)));
         }
+
+        uint8_t temp_type;
+
+        int cot = 0;
+        int j = 1;
+
+        while(cot != 10){
+
+            struct taged_parm *size_ptr2= (struct taged_parm *)(packet+rd->h_len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed)+(2*j)+size1);
+
+            printf("\ntemp_type : %x\n", size_ptr2->tag_num);
+            printf("\nlen: %x", size_ptr2->tag_len);
+
+            temp_type = size_ptr2->tag_num;
+            size1 = size1 +size_ptr2->tag_len;
+
+            if(temp_type == 0x30)
+                printf("\nGOOOOOOOOOOOOOOOOOOD!!!\n");
+            j++;
+            cot ++;
+       }
+
+        printf("\nssid size1 = %d\n", size1);
+       // printf("\nssid size2 = %d\n", size2);
 
         struct ap temp_ap;
         temp_ap.beacon=1; // start beacon
         temp_ap.essid=name; // sside_name
         temp_ap.pwr=-((~(*((uint8_t*)rd+22))+1)&0x000000FF); // size
-        temp_ap.essid_len=size; // ssid_size
+        temp_ap.essid_len=size1; // ssid_size
 
         if((rd->channel-2412)/5 == 0) // channel
             temp_ap.chan = 1;
@@ -95,6 +118,7 @@ int main(int argc, char* argv[]){
             temp_ap.chan = ((rd->channel-2412)/5)+ 1;
 
         ap_ls.insert({temp,temp_ap});
+
     }
     int num=1;
 
