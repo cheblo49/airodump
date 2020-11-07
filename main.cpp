@@ -188,9 +188,6 @@ int main(int argc, char *argv[])
 
 
 void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struct ap> &ap_ls){
-
-
-
     int cnt=0;
     while(true){
         if(cnt==50) break;
@@ -208,10 +205,10 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
 
 
 
-       vector<uint8_t> temp;
-       vector<uint8_t> name;
-       for(int i=0;i<6;i++)
-           temp.push_back(*(target+i));
+        vector<uint8_t> temp;
+        vector<uint8_t> name;
+        for(int i=0;i<6;i++)
+            temp.push_back(*(target+i));
        cnt++;
        if(!ap_list.insert(temp).second) {ap_ls.find(temp)->second.beacon++; continue;}
 
@@ -236,6 +233,9 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
        temp_ap.essid=name;
        temp_ap.pwr=-((~(*((uint8_t*)rd+22))+1)&0x000000FF);
        temp_ap.essid_len=size;
+       temp_ap.cipher  = 0;
+
+       temp_ap.enc = 0;
 
        while(true){
            struct ssid *size_ptr2= (struct ssid *)(packet+rd->len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed)+(2*j)+size);
@@ -248,37 +248,44 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
 
            temp_type = size_ptr2->ssid_num;
 
+
+
            if(temp_type == 0x30){
                struct ssid *size_ptr3= (struct ssid *)(packet+rd->len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed)+(2*j)+size+7);
-               //cout << size_ptr2 + 0x08 << endl;
 
                switch(size_ptr3->ssid_num){
 
                case 1:
                    temp_ap.cipher = 1;
+                   temp_ap.enc = 1;
                    break;
                case 2:
                    temp_ap.cipher = 2;
+                   temp_ap.enc = 2;
                    break;
                case 4:
                    temp_ap.cipher = 4;
+                   temp_ap.enc = 3;
                    break;
                case 5:
                    temp_ap.cipher = 5;
+                   temp_ap.enc = 1;
                    break;
                default:
                    temp_ap.cipher = 0;
+                   temp_ap.enc = 0;
                    break;
                }
            }
            size = size +size_ptr2->ssid_len;
            j++;
            cot ++;
+
       }
-      /* */
 
        //printf("%d\n",temp_ap.pwr);
-       ap_ls.insert({temp,temp_ap});
+        ap_ls.insert({temp,temp_ap});
+
 
 
 
@@ -288,28 +295,43 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
 void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls){
 
 
-    printf("      BSSID            PWR    Beacons  #Data, #/s  CH   MB   ENC CIPHER  AUTH ESSID  \n");
+    printf("      BSSID            PWR    Beacons  #Data, #/s  CH   MB    ENC     CIPHER  AUTH ESSID  \n");
 
     int num=1;
+    int cnt = 0;
     for(auto i=ap_ls.begin();i!=ap_ls.end();i++)
            {
-             printf("[%d] ",num++);
+             if(cnt<9)
+                printf(" [%d] ", num++);
+             else
+                printf("[%d] ", num++);
+             cnt++;
 
              for(int j=0;j<5;j++)
                  printf("%02x:",i->first[j]);
              printf("%02x",i->first[5]);
              printf("  %3d",i->second.pwr);
              printf("  %7d",i->second.beacon);
+          //   cout << i->second.enc;
+             if(i->second.enc == 0)
+                 printf("%30s", "OPN ");
+             else if(i->second.enc == 1)
+                 printf("%30s", "WEP ");
+             else if(i->second.enc == 2)
+                 printf("%30s", "WPA ");
+             else if(i->second.enc == 3)
+                 printf("%30s", "WPA2");
+
              if(i->second.cipher == 1)
-                 printf("%35s", "  WEP-40");
+                 printf("%9s", "  WEP-40");
              else if(i->second.cipher == 2)
-                 printf("%35s", "  TKIP");
+                 printf("%9s", "  TKIP");
              else if(i->second.cipher == 4)
-                 printf("%35s", "  CCMP");
+                 printf("%9s", "  CCMP");
              else if(i->second.cipher == 5)
-                 printf("%35s", "  WEP-104");
+                 printf("%9s", "  WEP-104");
              else if(i->second.cipher == 0)
-                 printf("%35s", "-");
+                 printf("%9s", "  - ");
 
              printf("        ");
              for(auto k=i->second.essid.begin();k<i->second.essid.end();k++)
