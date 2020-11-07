@@ -50,13 +50,6 @@ struct ssid
     //vector<uint8_t> essid;
 };
 
-struct taged_parm{
-
-    uint8_t tag_num;
-    uint8_t tag_len;
-};
-
-
 
 struct ap{
 
@@ -65,8 +58,8 @@ struct ap{
     uint8_t beacon;
     int8_t pwr;
     uint8_t essid_len;
-    uint8_t chan;
-
+    uint8_t enc;
+    uint8_t cipher;
 };
 
 uint8_t* make_beacon(vector<uint8_t> mac,struct ap select,uint8_t* pk_size,int num);
