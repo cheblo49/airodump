@@ -1,3 +1,4 @@
+#include<cstring>
 #include <pcap.h>
 #include <stdlib.h>
 #include "dot11.h"
@@ -42,11 +43,34 @@ int main(int argc, char *argv[])
    /* interface open */
     char* dev =argv[1];
     char errbuf[PCAP_ERRBUF_SIZE];
+
+    /* interface monitor mode on */
+    char cmdbuf1[256];
+    char cmdbuf2[256];
+    char temp[7]{0,};
+
+    FILE* fp;
+    sprintf(cmdbuf1, "iwconfig %s| grep Mode:| awk '{print $1}' | awk -F ':' '{print $2}'", dev);
+    fp = popen(cmdbuf1, "r");
+    if (fp == NULL){
+        perror("EROOR CODE_1\n");
+        return EXIT_FAILURE;
+    }
+    fgets(temp, 7, fp);
+    pclose(fp);
+
+    if(strcmp(temp,"Manage") == 0){
+        sprintf(cmdbuf2, "ip link set %s down && iwconfig %s mode monitor && ip link set %s up", dev, dev, dev);
+        system(cmdbuf2);
+    }
+
+
     pcap_t* handle = pcap_open_live(dev,BUFSIZ,1,1000,errbuf);
     if(handle==NULL){
         fprintf(stderr,"couldn't open device %s: %s\n",dev,errbuf);
         return -1;
     }
+
 
     /* get packet */
 
