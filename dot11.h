@@ -64,6 +64,9 @@ struct ap{
 
 uint8_t* make_beacon(vector<uint8_t> mac,struct ap select,uint8_t* pk_size,int num);
 uint8_t* make_deauth(vector<uint8_t> mac,uint8_t *size);
+uint8_t* make_reasso(vector<uint8_t> mac,uint8_t *size);
+uint8_t* make_disasso(vector<uint8_t> mac,uint8_t *size);
+
 
 #pragma pack(pop)
 #endif // DOT11_H
