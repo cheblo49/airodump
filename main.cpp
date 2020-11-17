@@ -19,7 +19,7 @@ void usage(){
     printf("sample: airodump wlan0\n");
 }
 
-void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struct ap> &ap_ls);
+void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struct ap> &ap_ls, char *dev);
 void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls);
 void exe_deauth(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap);
 void exe_disasso(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap);
@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
     }
 
 
+
     pcap_t* handle = pcap_open_live(dev,BUFSIZ,1,1000,errbuf);
     if(handle==NULL){
         fprintf(stderr,"couldn't open device %s: %s\n",dev,errbuf);
@@ -81,7 +82,7 @@ int main(int argc, char *argv[])
     struct ap sel_ap;
 
 
-    scan(handle,ap_list, ap_ls);
+    scan(handle,ap_list, ap_ls, dev);
 
 
     /* Print AP list*/
@@ -219,12 +220,22 @@ int main(int argc, char *argv[])
 
 
 
-void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struct ap> &ap_ls){
+void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struct ap> &ap_ls, char *dev){
     int cnt=0;
+    int i = 1;
     while(true){
-        if(cnt==50) break;
+        if(cnt==10) break;
         struct pcap_pkthdr* header;
         const u_char* packet;
+        char cmdbuf3[256];
+
+        sprintf(cmdbuf3, "iwconfig %s channel %d", dev, i);
+        system(cmdbuf3);
+        i++;
+        if(i == 15)
+            i = 1;
+
+
         int res = pcap_next_ex(handle,&header,&packet);
         if(res ==0) continue;
         if(res == -1 || res == -2) break;
@@ -284,6 +295,7 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
 
            if(temp_type == 0x30){
                struct ssid *size_ptr3= (struct ssid *)(packet+rd->len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed)+(2*j)+size+7);
+               struct ssid *size_ptr4= (struct ssid *)(packet+rd->len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed)+(2*j)+size+23);
 
                switch(size_ptr3->ssid_num){
 
@@ -308,6 +320,21 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
                    temp_ap.enc = 0;
                    break;
                }
+
+               switch(size_ptr4->ssid_num){
+
+               case 1:
+                   temp_ap.auth = 1;
+                   break;
+
+               case 2:
+                   temp_ap.auth =2;
+                   break;
+               default:
+                   break;
+               }
+
+
            }
            size = size +size_ptr2->ssid_len;
            j++;
@@ -327,7 +354,7 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
 void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls){
 
 
-    printf("      BSSID            PWR    Beacons  #Data, #/s  CH   MB    ENC     CIPHER  AUTH ESSID  \n");
+    printf("      BSSID            PWR    Beacons  #Data, #/s  CH   MB    ENC     CIPHER   AUTH  ESSID  \n");
 
     int num=1;
     int cnt = 0;
@@ -365,7 +392,14 @@ void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls)
              else if(i->second.cipher == 0)
                  printf("%9s", "  - ");
 
-             printf("        ");
+             if(i->second.auth == 1)
+                 printf("%8s", "  802.1X");
+             else if(i->second.auth ==2)
+                 printf("%8s","PSK");
+             else
+                 printf("%8s"," - ");
+
+             printf("  ");
              for(auto k=i->second.essid.begin();k<i->second.essid.end();k++)
                   printf("%c",(*k));
              printf("\n");

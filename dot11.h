@@ -67,6 +67,7 @@ struct ap{
     uint8_t essid_len;
     uint8_t enc;
     uint8_t cipher;
+    uint8_t auth;
 };
 
 uint8_t* make_beacon(vector<uint8_t> mac,struct ap select,uint8_t* pk_size,int num);
