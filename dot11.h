@@ -34,7 +34,6 @@ struct dot11_header
     uint16_t seq;
 };
 
-
 struct beacon_fixed
 {
     uint8_t timestamp[8];
@@ -48,6 +47,13 @@ struct reasso_fixed
     uint8_t timestamp[8];
     uint16_t interval;
     uint16_t capab;
+};
+struct reasso_fixed2
+{
+    uint16_t capab;
+    uint16_t interval;
+    uint8_t current[6];
+
 };
 
 struct ssid
@@ -63,18 +69,25 @@ struct ap{
     //vector<uint8_t> bssid;
     vector<uint8_t> essid;
     uint8_t beacon;
+    uint8_t channel;
     int8_t pwr;
     uint8_t essid_len;
     uint8_t enc;
     uint8_t cipher;
-    uint8_t auth;
+};
+
+struct station{
+
+    uint8_t mac[6];
+    uint8_t ip[4];
+
 };
 
 uint8_t* make_beacon(vector<uint8_t> mac,struct ap select,uint8_t* pk_size,int num);
 uint8_t* make_reasso(vector<uint8_t> mac,struct ap select,uint8_t* pk_size,int num);
+uint8_t* make_reasso2(vector<uint8_t> mac,struct ap select,uint8_t* pk_size);
 uint8_t* make_deauth(vector<uint8_t> mac,uint8_t *size);
 uint8_t* make_disasso(vector<uint8_t> mac,uint8_t *size);
-
 
 #pragma pack(pop)
 #endif // DOT11_H
