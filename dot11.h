@@ -74,6 +74,7 @@ struct ap{
     uint8_t essid_len;
     uint8_t enc;
     uint8_t cipher;
+    uint8_t auth;
 };
 
 struct station{

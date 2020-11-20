@@ -10,8 +10,22 @@ struct radiotap
   uint8_t version;
   uint8_t pad;
   uint16_t len;
-  uint32_t present;
+  uint32_t present; //4 byte
+  uint32_t present1; //4 byte
+  //uint8_t mac_timestamp[8];
+  uint8_t flags; //
+  uint8_t padding; // 00 padding
+  //uint8_t data_rate; // r
+  uint16_t channel; // channel frequency
+  uint16_t channel_flags; // channel flags
+  uint8_t antenna_signal; // antenna siignal
+  uint8_t antenna; // antenna
+  uint16_t rx_flags;// RX flags
   /*
+  uint8_t version;
+  uint8_t pad;
+  uint16_t len;
+  uint32_t present;
   uint32_t present1;
   uint32_t present2;
   uint32_t present3;
@@ -28,7 +42,6 @@ struct radiotap
   uint8_t ant_signal2;
   uint8_t ant2;
   */
-
   /*
   uint8_t time[8];
   uint8_t c_flag;
@@ -38,7 +51,6 @@ struct radiotap
   uint8_t ant;
   uint16_t rx_flag;
   */
-
 };
 
 

@@ -23,6 +23,7 @@ map<uint16_t,uint8_t> rd_channel={{2412,1},{2417,2},{2422,3},{2427,4},{2432,5},{
                                   {5640,128},{5660,132},{5680,136},{5700,140},{5745,149},{5765,153},
                                   {5785,157},{5805,161},{5825,165}};
 
+char * temp_dev;
 
 void usage(){
 
@@ -44,7 +45,7 @@ void exe_arp(pcap_t* handle,vector<uint8_t> &sel_mac);
 void exe_fake(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap, map<vector<uint8_t>,struct ap> ap_ls);
 void exe_disasso(pcap_t* handle,vector<uint8_t> sel_mac);
 void exe_reasso(pcap_t* handle,vector<uint8_t> sel_mac,struct ap sel_ap);
-
+//void thread_channel();
 void thread_scan(pcap_t* handle,bool *attack,bool *run,vector<uint8_t> sel);
 void thread_attack(pcap_t* handle,uint8_t *packet,uint8_t packet_size);
 
@@ -57,6 +58,45 @@ void send_rarp(vector<uint8_t> &sel_ip,vector<uint8_t> &sel_st_mac,vector<uint8_
 
 uint16_t in_cksum(uint16_t *addr, unsigned int len);
 
+/*void thread_channel(){
+    int i = 1;
+    char cmdbuf3[256];
+
+    sprintf(cmdbuf3, "iwconfig %s channel %d", temp_dev, i);
+    system(cmdbuf3);
+    i++;
+    sleep(3);
+
+    if(i == 15)
+        i = 1;
+
+}
+*/
+void * channel_hop(void * data){
+    char command[50], chan_num[3], real_command[50];
+    int CHAN_NUM[14]= {1,7,13,2,8,3,14,9,4,10,5,11,6,12};
+    int i = 0;
+
+    memset(command, 0, sizeof(command));
+    strcpy(command, "sudo iwconfig ");
+    strcat(command, (char *)data );
+    strcat(command, " channel ");
+
+    while(1){
+        real_command[0] = '\0';
+        chan_num[0] = '\0';
+        sprintf(chan_num, "%d", CHAN_NUM[i]);
+        strcpy(real_command, command);
+        strcat(real_command, chan_num);
+        system(real_command);
+        i++;
+        if(i > 14){
+            i = 0;
+        }
+        sleep(1.5);
+    }
+
+}
 int main(int argc, char *argv[])
 {
 
@@ -87,6 +127,7 @@ int main(int argc, char *argv[])
    /* interface open */
 
     char* dev =argv[1];
+    temp_dev = dev;
     char errbuf[PCAP_ERRBUF_SIZE];
 
     /* interface monitor mode on */
@@ -125,7 +166,15 @@ int main(int argc, char *argv[])
     }
 
     /* get packet */
+    int thr_id;
+    pthread_t p_thread;
 
+
+    thr_id = pthread_create(&p_thread, NULL, channel_hop, dev); // channel change
+        if (thr_id < 0){
+            perror("thread create error : ");
+            exit(0);
+    }
 
     set<vector<uint8_t>> ap_list ;
     map<vector<uint8_t>,struct ap> ap_ls;
@@ -224,6 +273,7 @@ int main(int argc, char *argv[])
 void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struct ap> &ap_ls){
 
     int cnt=0;
+
     time_t start=time(NULL);
        while(true){
            if(cnt==50) break;
@@ -240,8 +290,6 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
 
            uint8_t *target = dot11->bssid;
 
-
-
            vector<uint8_t> temp;
            vector<uint8_t> name;
            for(int i=0;i<6;i++)
@@ -249,13 +297,11 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
           cnt++;
           if(!ap_list.insert(temp).second) {ap_ls.find(temp)->second.beacon++; continue;}
 
-
           struct ssid *size_ptr= (struct ssid *)(packet+rd->len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed));
 
           uint8_t size = size_ptr->ssid_len;
 
           for(int i=0;i<size;i++){
-
                    name.push_back(*((uint8_t *)(packet+rd->len+sizeof(dot11_header)+sizeof(struct beacon_fixed)+2+i)));
           }
 
@@ -268,7 +314,16 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
           struct ap temp_ap;
           temp_ap.beacon=1;
           temp_ap.essid=name;
-          temp_ap.channel=(rd_channel.find(*((uint16_t*)rd+9)))->second;
+          temp_ap.channel=(rd_channel.find(rd->channel))->second;
+
+          printf("%x ",rd->channel);
+
+
+          /*
+          if((rd->channel-2412)/5 == 0) // channel
+                     temp_ap.chan = 1;
+                 else
+                     temp_ap.chan = ((rd->channel-2412)/5)+ 1;*/
           temp_ap.pwr=-((~(*((uint8_t*)rd+22))+1)&0x000000FF);
           temp_ap.essid_len=size;
           temp_ap.cipher  = 0;
@@ -290,6 +345,7 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
 
               if(temp_type == 0x30){
                   struct ssid *size_ptr3= (struct ssid *)(packet+rd->len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed)+(2*j)+size+7);
+                  struct ssid *size_ptr4= (struct ssid *)(packet+rd->len+sizeof(struct dot11_header)+sizeof(struct beacon_fixed)+(2*j)+size+23);
 
                   switch(size_ptr3->ssid_num){
 
@@ -314,26 +370,31 @@ void scan(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,struc
                       temp_ap.enc = 0;
                       break;
                   }
+                  switch(size_ptr4->ssid_num){
+
+                  case 1:
+                       temp_ap.auth = 1;
+                       break;
+
+                  case 2:
+                       temp_ap.auth =2;
+                       break;
+                  default:
+                       break;
+                  }
               }
               size = size +size_ptr2->ssid_len;
               j++;
               cot ++;
-
-         }
-
-          //printf("%d\n",temp_ap.pwr);
+         }          
            ap_ls.insert({temp,temp_ap});
-
-
-
-
        }
 }
 
 void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls){
     system("clear");
     printf("\n---------------------------------------------------------------------------------------------------------------\n");
-        printf("      BSSID            PWR    Beacons  #Data, #/s  CH   MB    ENC     CIPHER  AUTH ESSID  \n");
+        printf("      BSSID             PWR   Beacons   CH      ENC     CIPHER    AUTH       ESSID  \n");
         int dcnt=0; //danger count
         int num=1;
         int cnt = 0;
@@ -348,22 +409,20 @@ void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls)
                      printf("%02x:",i->first[j]);
                  printf("%02x",i->first[5]);
 
-
-
                  printf("  %3d",i->second.pwr);
                  printf("  %7d",i->second.beacon);
-                 printf("              %3d",i->second.channel);
+                 printf("   %3d",i->second.channel);
               //   cout << i->second.enc;
                  if(i->second.enc == 0){
-                     printf("%13s", "OPN ");
+                     printf("%10s", "OPN ");
                      dcnt++;
                  }
                  else if(i->second.enc == 1)
-                     printf("%13s", "WEP ");
+                     printf("%10s", "WEP ");
                  else if(i->second.enc == 2)
-                     printf("%13s", "WPA ");
+                     printf("%10s", "WPA ");
                  else if(i->second.enc == 3)
-                     printf("%13s", "WPA2");
+                     printf("%10s", "WPA2");
 
                  if(i->second.cipher == 1)
                      printf("%9s", "  WEP-40");
@@ -375,6 +434,13 @@ void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls)
                      printf("%9s", "  WEP-104");
                  else if(i->second.cipher == 0)
                      printf("%9s", "  - ");
+
+                 if(i->second.auth == 1)
+                       printf("%8s", "  802.1X");
+                 else if(i->second.auth ==2)
+                     printf("%8s","PSK");
+                 else
+                     printf("%8s"," - ");
 
                  printf("        ");
                  for(auto k=i->second.essid.begin();k<i->second.essid.end();k++)
@@ -388,7 +454,7 @@ void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls)
                 cnt =-1;
                 num = 0;
                 printf("Dangerous AP List ---------------------------------------------------------------------------------------------\n");
-                printf("      BSSID            PWR    Beacons  #Data, #/s  CH   MB    ENC     CIPHER  AUTH ESSID  \n");
+                printf("      BSSID             PWR   Beacons   CH      ENC     CIPHER    AUTH       ESSID  \n");
                 for(auto i=ap_ls.begin();i!=ap_ls.end();i++){
                         cnt++;
                         num++;
@@ -405,38 +471,45 @@ void print_ap(set<vector<uint8_t>> ap_list,map<vector<uint8_t>,struct ap> ap_ls)
                          printf("%02x",i->first[5]);
 
 
-
                          printf("  %3d",i->second.pwr);
                          printf("  %7d",i->second.beacon);
-                         printf("              %3d",i->second.channel);
-
+                         printf("   %3d",i->second.channel);
                       //   cout << i->second.enc;
                          if(i->second.enc == 0){
-                             printf("%13s", "OPN ");
+                             printf("%10s", "OPN ");
+                             dcnt++;
                          }
                          else if(i->second.enc == 1)
-                             printf("%13s", "WEP ");
+                             printf("%10s", "WEP ");
                          else if(i->second.enc == 2)
-                             printf("%13s", "WPA ");
+                             printf("%10s", "WPA ");
                          else if(i->second.enc == 3)
-                             printf("%13s", "WPA2");
+                             printf("%10s", "WPA2");
 
                          if(i->second.cipher == 1)
-                             printf("%9s", "  WEP-40");
-                         else if(i->second.cipher == 2)
-                             printf("%9s", "  TKIP");
-                         else if(i->second.cipher == 4)
-                             printf("%9s", "  CCMP");
-                         else if(i->second.cipher == 5)
-                             printf("%9s", "  WEP-104");
-                         else if(i->second.cipher == 0)
-                             printf("%9s", "  - ");
+                                 printf("%9s", "  WEP-40");
+                             else if(i->second.cipher == 2)
+                                 printf("%9s", "  TKIP");
+                             else if(i->second.cipher == 4)
+                                 printf("%9s", "  CCMP");
+                             else if(i->second.cipher == 5)
+                                 printf("%9s", "  WEP-104");
+                             else if(i->second.cipher == 0)
+                                 printf("%9s", "  - ");
 
+                         if(i->second.auth == 1)
+                             printf("%8s", "  802.1X");
+                         else if(i->second.auth ==2)
+                             printf("%8s","PSK");
+                         else
+                             printf("%8s"," - ");
                          printf("        ");
+
                          for(auto k=i->second.essid.begin();k<i->second.essid.end();k++)
-                              printf("%c",(*k));
+                             printf("%c",(*k));
+
                          printf("\n");
-                    }
+                }
 
             }
             printf("---------------------------------------------------------------------------------------------------------------\n");
@@ -555,6 +628,10 @@ void select(pcap_t* handle,set<vector<uint8_t>> &ap_list,map<vector<uint8_t>,str
 
     int sel;
     while(true){
+
+      //  thread channel = thread(thread_channel);
+        //channel.join();
+
         ap_list.clear();
         ap_ls.clear();
         scan(handle,ap_list, ap_ls);
@@ -593,6 +670,7 @@ void scan_station(pcap_t* handle,vector<uint8_t> &sel_mac,map<vector<uint8_t>,ve
     //printf("scanning..");
     time_t start=time(NULL);
     while(true){
+
         if(cnt==3) break;
         if(time(NULL)-start>5) break;
         struct pcap_pkthdr* header;
